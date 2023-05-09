@@ -8,14 +8,36 @@ import java.util.concurrent.*;
 
 public class Main {
     public static void main(String []args) {
-        ScheduledThreadPoolExecutor exec = new ScheduledThreadPoolExecutor(1);
-        CTe1 t = new CTe1();
-        exec.scheduleWithFixedDelay(t, 1, 1, TimeUnit.SECONDS);
-
-        ThreadFactory factory = Executors.privilegedThreadFactory();
-        ThreadPoolExecutor texec = new ThreadPoolExecutor(
+        ThreadPoolExecutor exec = new ThreadPoolExecutor(
                 1, 1, 0, TimeUnit.SECONDS,
                 new LinkedBlockingDeque<>(1), new TFactory());
-        texec.execute(t);
+        // 如果supplyAsync在调用thenAccept前就complete，则thenAccept会阻塞
+        // 反正不会
+        // 即使用thenAccept时，前面步骤过快则会阻塞在thenAccept处
+        CompletableFuture.supplyAsync(() -> {
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException e) {
+//                throw new RuntimeException(e);
+//            }
+            System.out.println(1);
+            return 1;
+        }, exec).thenAcceptAsync(e -> {
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            }
+            System.out.println(e + 1);
+        }, exec);
+
+        System.out.println("out");
+        try {
+            Thread.sleep(2000);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        exec.shutdown();
+        System.out.println("exit");
     }
 }
